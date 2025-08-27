@@ -1,4 +1,4 @@
-Here’s your README updated with the video link added at the top:
+
 
 ```markdown
 # Chat App (Mobile)
@@ -17,7 +17,7 @@ A real-time chat application built with **React Native (mobile)** and **Node.js 
 - [Setup](#setup)  
 - [Environment Variables](#environment-variables)  
 - [Running the Project](#running-the-project)  
-- [Sample Users](#sample-users)  
+- [Notes](#notes)  
 
 ---
 
@@ -60,8 +60,9 @@ chat-app/
 ```bash
 git clone https://github.com/tsujit74/chat-app.git
 cd chat-app
-cd npm install
 ````
+
+---
 
 ### 2. Server setup
 
@@ -84,7 +85,7 @@ Start server:
 npm start
 ```
 
-Server runs on `http://localhost:8000`
+Server runs on `http://localhost:8000`.
 
 ---
 
@@ -98,7 +99,7 @@ npm install
 Create `.env` in `/mobiles`:
 
 ```
-SERVER_BASE=http://ipadress:8000
+SERVER_BASE=http://<your_ip_address>:8000
 ```
 
 Start app:
@@ -108,6 +109,24 @@ npx expo start
 ```
 
 Open on your mobile device using **Expo Go**.
+
+---
+
+### 4. Optional: Web Deployment (Expo Web)
+
+1. Make sure you have `react-dom`, `react-native-web`, `@expo/webpack-config` installed:
+
+```bash
+npm install react-dom react-native-web @expo/webpack-config --legacy-peer-deps
+```
+
+2. Export web build:
+
+```bash
+npx expo export:web
+```
+
+3. Serve `web-build/` folder using any static host (Vercel, Netlify, etc.)
 
 ---
 
@@ -121,17 +140,45 @@ Open on your mobile device using **Expo Go**.
 | MONGO\_URI  | MongoDB connection string              |
 | JWT\_SECRET | Secret key for JWT authentication      |
 
+### Mobile App (`/mobiles/.env`)
+
+| Variable     | Description                    |
+| ------------ | ------------------------------ |
+| SERVER\_BASE | Base URL of the backend server |
+
+---
+
+## Running the Project
+
+1. Start **server**:
+
+```bash
+cd server
+npm start
+```
+
+2. Start **mobile app**:
+
+```bash
+cd mobiles
+npx expo start
+```
+
+3. Open on your **device** using **Expo Go**.
+4. Ensure the server URL is accessible from your device.
+
 ---
 
 ## Notes
 
-* Ensure the backend server is running before starting the mobile app.
 * JWT token is stored in `AsyncStorage`.
-* Socket.IO is used for real-time messaging; make sure the server URL is accessible from your phone.
-* Network errors, session expiry, and server timeouts are handled globally in the app.
+* Socket.IO is used for real-time messaging.
+* Network errors, session expiry, and server timeouts are handled globally.
+* Web build is optional and can be deployed via any static hosting service.
 
 ---
 
 ```
+
 
 ```
