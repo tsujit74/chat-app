@@ -3,11 +3,12 @@ import axios, { AxiosError } from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
+import { SERVER_BASE } from "../config/server";
 
 
 // Create axios instance
 const api = axios.create({
-  baseURL: `https://chat-app-76vg.onrender.com/api`,
+  baseURL: `${SERVER_BASE}/api`,
   timeout: 10000, // 10 seconds
 });
 
