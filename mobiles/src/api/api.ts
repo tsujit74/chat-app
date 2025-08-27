@@ -4,65 +4,72 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
 
-export const SERVER_BASE = "http://10.232.171.17:8000";
 
+// Create axios instance
 const api = axios.create({
-  baseURL: `${SERVER_BASE}/api`,
+  baseURL: `https://chat-app-76vg.onrender.com/api`,
   timeout: 10000, // 10 seconds
 });
 
-// Request interceptor to attach token
+// Request interceptor: attach token
 api.interceptors.request.use(
-  async (cfg) => {
+  async (config) => {
     try {
       const token = await AsyncStorage.getItem("token");
       if (token) {
-        cfg.headers = cfg.headers ?? {};
-        cfg.headers.Authorization = `Bearer ${token}`;
+        config.headers = config.headers ?? {};
+        config.headers.Authorization = `Bearer ${token}`;
       }
     } catch (e) {
       console.error("Error reading token:", e);
     }
-    return cfg;
+    return config;
   },
-  (err) => Promise.reject(err)
+  (error) => Promise.reject(error)
 );
 
-// Response interceptor for global error handling
+// Response interceptor: handle errors globally
 api.interceptors.response.use(
-  (res) => res,
-  async (err: AxiosError) => {
-    // Check network connectivity
+  (response) => response,
+  async (error: AxiosError) => {
+    // Check network connection
     const netState = await NetInfo.fetch();
     if (!netState.isConnected) {
       Alert.alert("Network Error", "No internet connection. Please check your network.");
       return Promise.reject({ message: "No internet connection" });
     }
 
-    if (err.code === "ECONNABORTED") {
+    // Timeout
+    if (error.code === "ECONNABORTED") {
       Alert.alert("Timeout", "Server took too long to respond. Please try again.");
       return Promise.reject({ message: "Request timeout" });
     }
 
-    // Unauthorized / Token expired
-    if (err.response?.status === 401) {
-      Alert.alert("Unauthorized", "Session expired. Please login again.");
+    // Unauthorized / token expired
+    if (error.response?.status === 401) {
+      Alert.alert("Session Expired", "Please login again.");
       await AsyncStorage.removeItem("token");
-      // Optional: navigate to login screen
+      // Optional: trigger logout or navigation to login
       return Promise.reject({ message: "Unauthorized" });
     }
 
     // Forbidden
-    if (err.response?.status === 403) {
+    if (error.response?.status === 403) {
       Alert.alert("Forbidden", "You do not have permission to perform this action.");
       return Promise.reject({ message: "Forbidden" });
     }
 
+    // 404 Not Found
+    if (error.response?.status === 404) {
+      Alert.alert("Not Found", "Requested resource not found.");
+      return Promise.reject({ message: "Not Found" });
+    }
+
     // Default server error
-    const msg = err.response?.data?.msg || err.message || "Something went wrong";
+    const msg = error.response?.data?.msg || error.message || "Something went wrong";
     Alert.alert("Error", msg);
 
-    return Promise.reject(err);
+    return Promise.reject(error);
   }
 );
 
