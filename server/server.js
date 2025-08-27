@@ -4,6 +4,8 @@ import { Server } from "socket.io";
 import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
+import helmet from "helmet";
+import morgan from "morgan";
 
 import { authMiddleware } from "./middleware/authMiddleware.js";
 import authRoutes from "./routes/auth.js";
@@ -18,26 +20,45 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
-// Configure Socket.IO
+// ------------------- MIDDLEWARE -------------------
+
+// Security headers
+app.use(helmet());
+
+// Logging
+app.use(morgan("combined"));
+
+// Parse JSON requests
+app.use(express.json());
+
+// CORS – restrict origins in production
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || ["*"];
+app.use(
+  cors({
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    allowedHeaders: ["Authorization", "Content-Type"],
+  })
+);
+
+// ------------------- ROUTES -------------------
+
+app.use("/api/auth", authRoutes);
+app.use("/api/users", authMiddleware, userRoutes);
+app.use("/api/conversations", authMiddleware, conversationRoutes);
+
+// ------------------- SOCKET.IO -------------------
+
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     allowedHeaders: ["Authorization"],
   },
   transports: ["websocket", "polling"],
 });
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/users", authMiddleware, userRoutes);
-app.use("/api/conversations", authMiddleware, conversationRoutes);
-
-// Online users map (userId -> Set of socketIds)
+// Online users map
 const onlineUsers = new Map();
 
 const setUserOnline = async (userId, socketId) => {
@@ -56,8 +77,9 @@ const setUserOffline = async (userId, socketId) => {
   sockets.delete(socketId);
   if (sockets.size === 0) {
     onlineUsers.delete(userId);
-    await User.findByIdAndUpdate(userId, { online: false, lastSeen: new Date() });
-    io.emit("user:status", { userId, online: false, lastSeen: new Date() });
+    const lastSeen = new Date();
+    await User.findByIdAndUpdate(userId, { online: false, lastSeen });
+    io.emit("user:status", { userId, online: false, lastSeen });
   } else {
     onlineUsers.set(userId, sockets);
   }
@@ -66,13 +88,11 @@ const setUserOffline = async (userId, socketId) => {
 io.on("connection", (socket) => {
   console.log("✅ Socket connected:", socket.id);
 
-  // User comes online
   socket.on("user:online", async (userId) => {
     if (!userId) return;
     await setUserOnline(userId, socket.id);
   });
 
-  // Send message
   socket.on("message:send", async (data) => {
     try {
       const savedMessage = await Message.create({
@@ -83,7 +103,6 @@ io.on("connection", (socket) => {
 
       socket.emit("message:new", savedMessage);
 
-      // Emit to receiver if online
       const receiverSockets = onlineUsers.get(data.receiverId);
       if (receiverSockets) {
         receiverSockets.forEach((sId) => io.to(sId).emit("message:new", savedMessage));
@@ -93,7 +112,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Typing events
   socket.on("typing:start", ({ conversationId, userId, receiverId }) => {
     const receiverSockets = onlineUsers.get(receiverId);
     if (receiverSockets) {
@@ -108,7 +126,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Read receipts
   socket.on("message:read", async ({ messageId, userId }) => {
     try {
       await Message.findByIdAndUpdate(messageId, { read: true });
@@ -118,7 +135,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Delivered receipts
   socket.on("message:delivered", async ({ messageId, userId }) => {
     try {
       await Message.findByIdAndUpdate(messageId, { delivered: true });
@@ -128,7 +144,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Handle disconnect
   socket.on("disconnect", async () => {
     console.log("Socket disconnected:", socket.id);
     for (const [userId, sockets] of onlineUsers.entries()) {
@@ -140,11 +155,22 @@ io.on("connection", (socket) => {
   });
 });
 
-// Connect to DB + start server
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
+// ------------------- DATABASE & SERVER -------------------
+
+const startServer = async () => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log("✅ MongoDB connected");
+
     const PORT = process.env.PORT || 8000;
     server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-  })
-  .catch((err) => console.error("MongoDB connection error:", err));
+  } catch (err) {
+    console.error("MongoDB connection error:", err);
+    process.exit(1);
+  }
+};
+
+startServer();
