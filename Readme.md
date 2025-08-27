@@ -52,7 +52,7 @@ chat-app/
 - **Real-time Communication:** Socket.IO  
 
 ---
-
+````
 ## Setup
 
 ### 1. Clone the repository
@@ -63,8 +63,8 @@ cd chat-app
 ````
 
 ---
-
-### 2. Server setup
+```
+##### 2. Server setup
 
 ```bash
 cd server
